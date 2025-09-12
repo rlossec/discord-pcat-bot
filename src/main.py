@@ -1,14 +1,13 @@
 
 import discord
 import os
-from config.check import check_configuration
+
 from models.discordbot import DiscordBot
 from dotenv import load_dotenv
 
 
 def main():
-    # Check configuration and load environment variables
-    check_configuration()
+    # Load environment variables
     load_dotenv()
 
     # Initialize Discord bot

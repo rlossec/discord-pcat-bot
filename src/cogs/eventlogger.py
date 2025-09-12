@@ -57,7 +57,6 @@ class EventLogger(commands.Cog):
     async def event_inscriptions(self, ctx, event_id: int):
         """Affiche les inscrits avec la date d'inscription"""
 
-        print("self.db", self.db)
 
         events_data = self.db.all()[0].get('events', {})
         if not events_data:
@@ -65,7 +64,7 @@ class EventLogger(commands.Cog):
             return
 
         users_dict = events_data.get(str(event_id), {})
-        print("users_dict", users_dict)
+
         if not users_dict:
             await ctx.send("Aucun inscrit trouvé pour cet event.")
             return
