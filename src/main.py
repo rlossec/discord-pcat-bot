@@ -7,19 +7,21 @@ from dotenv import load_dotenv
 
 
 def main():
-
     # Check configuration and load environment variables
     check_configuration()
     load_dotenv()
 
-    # Initialize Discord client
+    # Initialize Discord bot
     intents = discord.Intents.default()
     intents.message_content = True
-    DICTABOT_TOKEN = os.getenv("DICTABOT_TOKEN")
+    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
     GUILD_ID = int(os.getenv("GUILD_ID"))
-    bot = DiscordBot(DICTABOT_TOKEN, GUILD_ID, intents)
-    bot.initialize_client()
-    bot.run()
+    
+    print("🚀 Démarrage du bot...")
+    bot_instance = DiscordBot(DISCORD_TOKEN, GUILD_ID, intents=intents, prefix="$")
+    
+    # Démarrer le bot (setup_hook et on_ready sont connectés automatiquement)
+    bot_instance.run()
 
 
 if __name__ == "__main__":
