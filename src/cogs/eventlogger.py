@@ -10,13 +10,31 @@ class EventLogger(commands.Cog):
         self.bot = bot
         self.guild_id = bot.guild_id
         self.db = TinyDB(DB_PATH)
-        if not self.db.contains(lambda doc: 'events' in doc):
-            self.db.insert({'events': {}})
+        self.Events = Query()
+        # Init DB if empty
+        if not self.db.contains(self.Events.events.exists()):
+            self.db.insert({"events": {}, "passed_events": {}})
         self.bot_ready_check.start()
+
+    def _load_db(self) -> dict:
+        """Load the structure of the DB"""
+        return self.db.get(self.Events.events.exists()) or {"events": {}, "passed_events": {}}
+
+    def _save_db(self, data: dict):
+        """Update the DB"""
+        self.db.update(data, self.Events.events.exists())
+
+    def _parse_date(self, iso_str: str) -> str:
+        """Transform an ISO date to a readable format"""
+        try:
+            dt = datetime.fromisoformat(iso_str)
+            return dt.strftime("%d/%m/%Y %H:%M")
+        except ValueError:
+            return iso_str
 
     @tasks.loop(count=1)
     async def bot_ready_check(self):
-        """Check tous les events à chaque démarrage"""
+        """Check all events at each startup"""
         await self.bot.wait_until_ready()
 
         print("⏱ Vérification des inscriptions aux scheduled events...")
@@ -26,22 +44,24 @@ class EventLogger(commands.Cog):
             print("❌ Guild introuvable")
             return
 
-        # Date Paris for now
-        now_iso = datetime.now(timezone.utc).astimezone().isoformat()
+        try:
+            events_discord = await guild.fetch_scheduled_events()
+        except Exception as e:
+            print(f"⚠️ Erreur lors du fetch des events : {e}")
+            return
         
-        events_db = self.db.all()
+        now_iso = datetime.now(timezone.utc).astimezone().isoformat()
+        db_data = self._load_db()
+        events_in_db = db_data.get("events", {})
+        passed_events = db_data.get("passed_events", {})
 
-        events_in_db = events_db[0].get('events', {})
-        events_discord = await guild.fetch_scheduled_events()
-
-        passed_events = events_db[0].get('passed_events', {})
         # update the db with the new events users
         for event in events_discord:
             event_id = str(event.id)
 
             users_in_db = events_in_db.get(event_id, {})
 
-            # fetch the users of the event
+            # fetch the subscribed users of the event
             event_users = []
             async for user in event.users():
                 event_users.append(user)
@@ -51,59 +71,56 @@ class EventLogger(commands.Cog):
             # update the db with the new events users
             for user in event_users:
                 user_id = str(user.id)
-                username = user.display_name
                 if user_id not in users_in_db:
-                    users_in_db[user_id] = now_iso
-                    print(f"✅ {user} s'est inscrit à l'event {event.name}.")
-                    users_in_db[user_id] = {"username": username, "joined_at": now_iso}
+                    users_in_db[user_id] = {
+                        "username": user.display_name,
+                        "joined_at": now_iso
+                    }
+                    print(f"✅ {user.display_name} s'est inscrit à l'event {event.name}.")
             
             # remove the users that have unsubscribed from the db
-            unsubscribed_users = []
-            for user_id, user in users_in_db.items():
-
-                event_users_ids = [str(user.id) for user in event_users]
-
-                if user_id not in event_users_ids:
-                    unsubscribed_users.append(user_id)
-                    print(f"❌ {user['username']} s'est désinscrit de l'event {event.name}.")
-
-            for user_id in unsubscribed_users:
-                users_in_db.pop(user_id)
+            event_user_ids = {str(user.id) for user in event_users}
+            unsubscribed_users = [
+                uid for uid in users_in_db if uid not in event_user_ids
+            ]
+            for uid in unsubscribed_users:
+                print(f"❌ {users_in_db[uid]['username']} s'est désinscrit de {event.name}.")
+                users_in_db.pop(uid)
 
             events_in_db[event_id] = users_in_db
 
-        events_in_db_copy = events_in_db.copy()
-        for event_id, users_in_db in events_in_db_copy.items():
-            event_ids = [str(event.id) for event in events_discord]
-            # Passed events transfered in another db
-            if event_id not in event_ids:
-                print(f"❌ {event_id} est passé.")
-                passed_events[event_id] = users_in_db
-                events_in_db.pop(event_id)
+        # transfer the passed events to the passed_events db
+        active_event_ids = {str(event.id) for event in events_discord}
+        for event_id in list(events_in_db.keys()):
+            if event_id not in active_event_ids:
+                print(f"📦 Event {event_id} terminé, archivé.")
+                passed_events[event_id] = events_in_db.pop(event_id)
 
-        # Met à jour la DB
-        self.db.update({'events': events_in_db})
-        self.db.update({'passed_events': passed_events})
-        print("✅ Vérification terminée.")
+        # Update the DB
+        self._save_db({"events": events_in_db, "passed_events": passed_events})
+        print("✅ Vérification des events terminée.")
 
 
     @commands.command(name="event_inscriptions")
     async def event_inscriptions(self, ctx, event_id: int):
-        """Affiche les inscrits avec la date d'inscription"""
+        """Display the subscribers of an event"""
 
-        events_in_db = self.db.all()[0].get('events', {})
-        if not events_in_db:
-            await ctx.send("Aucune donnée d'inscription trouvée.")
-            return
-
+        db_data = self._load_db()
+        events_in_db = db_data.get("events", {})
         users_dict = events_in_db.get(str(event_id), {})
-
         if not users_dict:
             await ctx.send("Aucun inscrit trouvé pour cet event.")
             return
 
-        message = "\n".join([f"- {user['username']} (enregistré le {datetime.strptime(user['joined_at'], '%Y-%m-%dT%H:%M:%S.%f%z').strftime('%d/%m/%Y %H:%M')})"
-                             for user_id, user in users_dict.items()])
+        # Sort the users by joined_at
+        sorted_users_dict = sorted(users_dict.values(), key=lambda x: x['joined_at'])
+
+        message = "\n".join(
+            [
+                f"- {user['username']} (inscrit le {self._parse_date(user['joined_at'])})"
+                for user in sorted_users_dict
+            ]
+        )
         await ctx.send(f"👥 Inscriptions pour l'event {event_id} :\n{message}")
 
 
