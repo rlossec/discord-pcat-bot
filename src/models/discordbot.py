@@ -22,11 +22,11 @@ class DiscordBot(commands.Bot):
         cogs_dir = "cogs"
         print("🔧 Chargement des cogs...")
 
-        if not os.path.exists(cogs_dir):
+        if not os.path.exists("src/" + cogs_dir):
             print(f"❌ Le dossier {cogs_dir} n'existe pas !")
             return
 
-        files = [f for f in os.listdir(cogs_dir) if f.endswith(".py") and f != "__init__.py"]
+        files = [f for f in os.listdir("src/" + cogs_dir) if f.endswith(".py") and f != "__init__.py"]
         print(f"📄 Fichiers trouvés : {files}")
 
         for filename in files:

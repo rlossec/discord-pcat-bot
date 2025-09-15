@@ -31,39 +31,72 @@ class EventLogger(commands.Cog):
         
         events_db = self.db.all()
 
-        events_data = events_db[0].get('events', {})
+        events_in_db = events_db[0].get('events', {})
         events_discord = await guild.fetch_scheduled_events()
 
-
+        passed_events = events_db[0].get('passed_events', {})
+        # update the db with the new events users
         for event in events_discord:
             event_id = str(event.id)
-            users_dict = events_data.get(event_id, {})
 
+            users_in_db = events_in_db.get(event_id, {})
+
+            # fetch the users of the event
+            event_users = []
             async for user in event.users():
+                event_users.append(user)
+
+            print(f"🔍 {event.name} a {len(event_users)} inscrits.")
+
+            # update the db with the new events users
+            for user in event_users:
                 user_id = str(user.id)
                 username = user.display_name
-                if user_id not in users_dict:
-                    users_dict[user_id] = now_iso
-                    print(f"✅ {user} ajouté à l'event {event.name} à {now_iso}")
-                    users_dict[user_id] = {"username": username, "joined_at": now_iso} 
+                if user_id not in users_in_db:
+                    users_in_db[user_id] = now_iso
+                    print(f"✅ {user} s'est inscrit à l'event {event.name}.")
+                    users_in_db[user_id] = {"username": username, "joined_at": now_iso}
+            
+            # remove the users that have unsubscribed from the db
+            unsubscribed_users = []
+            for user_id, user in users_in_db.items():
 
-            events_data[event_id] = users_dict
+                event_users_ids = [str(user.id) for user in event_users]
+
+                if user_id not in event_users_ids:
+                    unsubscribed_users.append(user_id)
+                    print(f"❌ {user['username']} s'est désinscrit de l'event {event.name}.")
+
+            for user_id in unsubscribed_users:
+                users_in_db.pop(user_id)
+
+            events_in_db[event_id] = users_in_db
+
+        events_in_db_copy = events_in_db.copy()
+        for event_id, users_in_db in events_in_db_copy.items():
+            event_ids = [str(event.id) for event in events_discord]
+            # Passed events transfered in another db
+            if event_id not in event_ids:
+                print(f"❌ {event_id} est passé.")
+                passed_events[event_id] = users_in_db
+                events_in_db.pop(event_id)
 
         # Met à jour la DB
-        self.db.update({'events': events_data})
+        self.db.update({'events': events_in_db})
+        self.db.update({'passed_events': passed_events})
         print("✅ Vérification terminée.")
+
 
     @commands.command(name="event_inscriptions")
     async def event_inscriptions(self, ctx, event_id: int):
         """Affiche les inscrits avec la date d'inscription"""
 
-
-        events_data = self.db.all()[0].get('events', {})
-        if not events_data:
+        events_in_db = self.db.all()[0].get('events', {})
+        if not events_in_db:
             await ctx.send("Aucune donnée d'inscription trouvée.")
             return
 
-        users_dict = events_data.get(str(event_id), {})
+        users_dict = events_in_db.get(str(event_id), {})
 
         if not users_dict:
             await ctx.send("Aucun inscrit trouvé pour cet event.")
