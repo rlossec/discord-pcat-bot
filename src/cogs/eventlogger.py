@@ -1,15 +1,15 @@
 import discord
 from discord.ext import commands, tasks
-from tinydb import TinyDB, Query
+from tinydb import Query
 from datetime import datetime, timezone, timedelta
-from config.settings import DB_PATH
+
 
 
 class EventLogger(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.guild_id = bot.guild_id
-        self.db = TinyDB(DB_PATH)
+        self.db = bot.db
         self.Events = Query()
         # Init DB if empty
         if not self.db.contains(self.Events.events.exists()):
@@ -37,17 +37,17 @@ class EventLogger(commands.Cog):
         """Check all events at each startup"""
         await self.bot.wait_until_ready()
 
-        print("⏱ Vérification des inscriptions aux scheduled events...")
+        self.bot.logger.info("⏱ Vérification des inscriptions aux scheduled events...")
 
         guild = self.bot.get_guild(self.guild_id)
         if not guild:
-            print("❌ Guild introuvable")
+            self.bot.logger.error("❌ Guild introuvable")
             return
 
         try:
             events_discord = await guild.fetch_scheduled_events()
         except Exception as e:
-            print(f"⚠️ Erreur lors du fetch des events : {e}")
+            self.bot.logger.error(f"⚠️ Erreur lors du fetch des events : {e}")
             return
         
         now_iso = datetime.now(timezone.utc).astimezone().isoformat()
@@ -66,7 +66,7 @@ class EventLogger(commands.Cog):
             async for user in event.users():
                 event_users.append(user)
 
-            print(f"🔍 {event.name} a {len(event_users)} inscrits.")
+            self.bot.logger.info(f"🔍 {event.name} a {len(event_users)} inscrits.")
 
             # update the db with the new events users
             for user in event_users:
@@ -76,7 +76,7 @@ class EventLogger(commands.Cog):
                         "username": user.display_name,
                         "joined_at": now_iso
                     }
-                    print(f"✅ {user.display_name} s'est inscrit à l'event {event.name}.")
+                    self.bot.logger.info(f"✅ {user.display_name} s'est inscrit à l'event {event.name}.")
             
             # remove the users that have unsubscribed from the db
             event_user_ids = {str(user.id) for user in event_users}
@@ -84,7 +84,7 @@ class EventLogger(commands.Cog):
                 uid for uid in users_in_db if uid not in event_user_ids
             ]
             for uid in unsubscribed_users:
-                print(f"❌ {users_in_db[uid]['username']} s'est désinscrit de {event.name}.")
+                self.bot.logger.error(f"❌ {users_in_db[uid]['username']} s'est désinscrit de {event.name}.")
                 users_in_db.pop(uid)
 
             events_in_db[event_id] = users_in_db
@@ -93,12 +93,12 @@ class EventLogger(commands.Cog):
         active_event_ids = {str(event.id) for event in events_discord}
         for event_id in list(events_in_db.keys()):
             if event_id not in active_event_ids:
-                print(f"📦 Event {event_id} terminé, archivé.")
+                self.bot.logger.info(f"📦 Event {event_id} terminé, archivé.")
                 passed_events[event_id] = events_in_db.pop(event_id)
 
         # Update the DB
         self._save_db({"events": events_in_db, "passed_events": passed_events})
-        print("✅ Vérification des events terminée.")
+        self.bot.logger.info("✅ Vérification des events terminée.")
 
 
     @commands.command(name="event_inscriptions")
