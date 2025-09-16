@@ -21,10 +21,12 @@ DictaBot est un bot Discord polyvalent conçu pour simplifier l'organisation et 
 
 - Python 3.8 ou supérieur
 - Un serveur Discord où vous avez les permissions de gestion des événements.
-  **Permissions Discord requises pour le bot**
-  - `Send Messages`
-  - `Read Message History`
-  - `View Channels`
+
+**Permissions Discord requises pour le bot**
+
+- `Send Messages`
+- `Read Message History`
+- `View Channels`
 
 #### 2. Cloner le dépôt
 
