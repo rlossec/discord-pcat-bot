@@ -1,9 +1,5 @@
-import discord
-from discord.ext import commands
-import json
-import os
-from datetime import datetime
 
+from discord.ext import commands
 
 
 class EventsCommands(commands.Cog):
@@ -30,14 +26,16 @@ class EventsCommands(commands.Cog):
         
         await ctx.send(message)
 
-
     @commands.command(name="participants")
-    async def participants(self, ctx, event_id: int):
-        """Affiche la liste des inscrits à un scheduled event"""
+    async def participants(self, ctx: commands.Context, event_id: int):
+        """
+        Affiche la liste des inscrits à un scheduled event par nom, et fournit les pings dans un bloc de code.
+        Utilisation: $participants <ID_Event>
+        """
         event = ctx.guild.get_scheduled_event(event_id)
 
         if not event:
-            await ctx.send("❌ Aucun event trouvé avec cet ID.")
+            await ctx.send(f"❌ Aucun événement trouvé avec l'ID `{event_id}`.")
             return
 
         users = []
@@ -46,9 +44,24 @@ class EventsCommands(commands.Cog):
 
         if not users:
             await ctx.send(f"Aucun inscrit à **{event.name}**.")
-        else:
-            liste = "\n".join([f"- {u.display_name}" for u in users])
-            await ctx.send(f"👥 Inscriptions pour **{event.name}** :\n{liste}")
+            return
+
+        # 1. Liste par noms d'affichage (pour la lecture)
+        liste_display_names = "\n".join([f"- {user.display_name}" for user in users])
+
+        # 2. Liste par mentions (pour le ping)
+        # On utilise le format de mention (user.mention) et on les joint par un espace.
+        liste_mentions = " ".join([user.mention for user in users])
+
+        # 3. Construction du message final
+        message = (
+            f"👥 Inscriptions pour **{event.name}** :\n"
+            f"{liste_display_names}\n\n"
+            f"--- Copiez/Collez pour le ping ---\n"
+            f"```{liste_mentions}```"
+        )
+
+        await ctx.send(message)
 
 
 async def setup(bot: commands.Bot):

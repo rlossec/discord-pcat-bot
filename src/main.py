@@ -2,7 +2,7 @@
 import discord
 import os
 
-from models.discordbot import DiscordBot
+from bot.bot import DiscordBot
 from dotenv import load_dotenv
 
 
