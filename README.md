@@ -78,3 +78,5 @@ python src/main.py
 ├── README.md
 └── requirements.txt
 ```
+
+## Commandes
