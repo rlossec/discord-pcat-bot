@@ -69,6 +69,7 @@ class DiscordBot(commands.Bot):
         self.logger.info(f"🌐 Connecté au serveur : {guild.name} (ID: {guild.id})")
         self.logger.info("------")
         self.display_available_commands()
+        self.logger.info("Done!")
 
     def display_available_commands(self):
         """Affiche toutes les commandes disponibles"""
