@@ -110,8 +110,6 @@ python src/main.py # avec un environnement virtuel actif
 
 ## 📚 Documentation Complète
 
-### 🏗️ [Architecture Technique](docs/ARCHITECTURE.md)
-
 ## 🏗️ Structure du Projet
 
 ```
