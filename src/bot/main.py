@@ -66,12 +66,19 @@ class DiscordBot(commands.Bot):
         """Charge tous les cogs"""
         logger.info("🔧 [COGS] Chargement des extensions...")
         
-        cogs_dir = "src.cogs"
-        cogs_path = cogs_dir.replace(".", "/")
+        # Chemin absolu pour trouver les cogs
+        # Ce fichier est dans src/bot/main.py, donc on remonte de deux niveaux
+        bot_dir = os.path.dirname(os.path.abspath(__file__))
+        src_dir = os.path.dirname(bot_dir)
+        cogs_path = os.path.join(src_dir, "cogs")
+        
+        logger.info(f"🔍 [COGS] Chemin utilisé : {cogs_path}")
         
         if not os.path.exists(cogs_path):
             logger.error(f"❌ [COGS] Le dossier {cogs_path} n'existe pas !")
             return
+        
+        cogs_dir = "cogs"  # Pour le load_extension
 
         files = [f for f in os.listdir(cogs_path) if f.endswith(".py") and f != "__init__.py"]
         logger.info(f"📄 [COGS] Fichiers trouvés : {files}")
@@ -177,6 +184,7 @@ class DiscordBot(commands.Bot):
             logger.info(f"  - {self.command_prefix}{command.name}: {command.help or 'Pas de description'}")
         
         logger.info("✅ [STARTUP] Bot opérationnel et prêt à recevoir des commandes !")
+        logger.info("Done!")
     
     def run(self):
         """Lance le bot"""
