@@ -1,25 +1,25 @@
+"""
+Point d'entrée principal de l'application
+"""
+import sys
+from pathlib import Path
 
-import discord
-import os
+# Ajouter le dossier src au PYTHONPATH
+src_path = Path(__file__).parent / "src"
+sys.path.insert(0, str(src_path))
 
-from bot.bot import DiscordBot
-from dotenv import load_dotenv
-
-
-def main():
-    # Load environment variables
-    load_dotenv()
-
-    # Initialize Discord bot
-    intents = discord.Intents.default()
-    intents.message_content = True
-    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-    GUILD_ID = int(os.getenv("GUILD_ID"))
-
-    bot_instance = DiscordBot(DISCORD_TOKEN, GUILD_ID, intents=intents, prefix="$")
-    print("🚀 Starting the bot...")
-    bot_instance.run()
-
+from bot.main import DiscordBot
 
 if __name__ == "__main__":
-    main()
+    bot = DiscordBot()
+    try:
+        bot.run()
+    except KeyboardInterrupt:
+        print("🛑 Arrêt demandé par l'utilisateur")
+    except Exception as e:
+        print(f"❌ Erreur : {e}")
+    finally:
+        try:
+            bot.close()
+        except Exception as e:
+            print(f"❌ Erreur lors de la fermeture : {e}")

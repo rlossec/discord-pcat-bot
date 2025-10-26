@@ -1,27 +1,30 @@
 
 from discord.ext import commands
 from datetime import datetime, timedelta, timezone
+from bot.core.config import DISCORD_GUILD_ID, DRAFT_ANNOUNCE_CHANNEL_ID
 
 
-class EventAnnouncement(commands.Cog):
+class AnnouncementCommands(commands.Cog):
+    """📢 Annonces d'Événements - Cog pour générer et envoyer des annonces"""
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.name = "📢 Annonces d'Événements"
+        self.description = "Génération et envoi des annonces d'événements"
         self.guild_id = bot.guild_id
 
     @commands.command(name="annonce")
     async def annonce(self, ctx):
         """Annonce les events de la semaine à venir"""
-        guild = self.bot.get_guild(self.guild_id)
-        if not guild:
-            await ctx.send("❌ Guild introuvable")
-            return
-
+        guild = self.bot.get_guild_safe()
 
         now = datetime.now(timezone.utc)
         days_until_sunday = 6 - now.weekday()
+        if days_until_sunday == 0:
+            days_until_sunday = 7
         end_of_week = now + timedelta(days=days_until_sunday, hours=23-now.hour, minutes=59-now.minute)
 
         events = await guild.fetch_scheduled_events()
+        
         week_events = [e for e in events if e.start_time and now <= e.start_time <= end_of_week]
 
         if not week_events:
@@ -44,9 +47,9 @@ class EventAnnouncement(commands.Cog):
         message += "Bonne semaine ! 😉"
         message += "```"
         # Envoyer le message d'annonce dans le channel de vérification des événements
-        test_channel = self.bot.get_channel(1287444577933983806)
+        test_channel = self.bot.get_channel(DRAFT_ANNOUNCE_CHANNEL_ID)
         await test_channel.send(message)
 
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(EventAnnouncement(bot))
+    await bot.add_cog(AnnouncementCommands(bot))
