@@ -11,7 +11,7 @@ class EventParticipation(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     event_discord_id = Column(String, ForeignKey('events.discord_id'), nullable=False)
     user_discord_id = Column(String, ForeignKey('users.discord_id'), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    joined_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
     # Relations
     event = relationship("Event", foreign_keys=[event_discord_id], back_populates="participations")
