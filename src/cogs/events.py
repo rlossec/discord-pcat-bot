@@ -2,10 +2,7 @@
 Cog pour la gestion des événements
 Utilise la nouvelle architecture Clean Architecture
 """
-import discord
 from discord.ext import commands
-from datetime import datetime
-from bot.domain.services import EventService, ParticipationService
 from bot.infrastructure.unit_of_work_impl import create_unit_of_work
 
 
@@ -29,28 +26,27 @@ class EventsCommands(commands.Cog):
                 await ctx.send("📅 Aucun événement trouvé.")
                 return
 
-            # Créer l'embed
-            embed = discord.Embed(
-                title="📅 Événements actifs",
-                color=discord.Color.blue()
-            )
+            # Créer le message
+            message = "📅 Événements actifs :\n"
 
             for event in events:
                 if event.start_time:
                     event_time = event.start_time.strftime('%d/%m/%Y %H:%M')
-                    embed.add_field(
-                        name=f"🎯 {event.name}",
-                        value=f"Date: {event_time}\nParticipants: {len(event.subscribers)}",
-                        inline=True
-                    )
+                    # Compter les participants depuis la base de données
+                    with self.uow_factory() as uow:
+                        participations = uow.participations.get_by_event(str(event.id))
+                        participants_count = len(participations)
+                    
+                    message += f"- {event.name} ({event_time}) - {participants_count} participants\n"
                 else:
-                    embed.add_field(
-                        name=f"🎯 {event.name}",
-                        value="Date non définie",
-                        inline=True
-                    )
+                    # Compter les participants même sans date
+                    with self.uow_factory() as uow:
+                        participations = uow.participations.get_by_event(str(event.id))
+                        participants_count = len(participations)
+                    
+                    message += f"- {event.name} (Date non définie) - {participants_count} participants\n"
             
-            await ctx.send(embed=embed)
+            await ctx.send(message)
             
         except Exception as e:
             await ctx.send(f"❌ Erreur lors de la récupération des événements : {str(e)}")
@@ -63,52 +59,43 @@ class EventsCommands(commands.Cog):
         """
         try:
             # Utiliser le service métier
-            uow = self.uow_factory()
-            event_service = EventService(uow)
-            participation_service = ParticipationService(uow)
-            
-            # Récupérer l'événement Discord
-            discord_event = ctx.guild.get_scheduled_event(event_id)
-            if not discord_event:
-                await ctx.send(f"❌ Aucun événement Discord trouvé avec l'ID `{event_id}`.")
-                return
-            
-            # Récupérer les participations depuis la base de données
-            with uow:
+            with self.uow_factory() as uow:
+                discord_event = uow.events.get_by_discord_id(str(event_id))
+                
+                # Stocker le nom de l'événement pendant que la session est ouverte
+                if not discord_event:
+                    await ctx.send(f"❌ Aucun événement trouvé avec l'ID `{event_id}`.")
+                    return
+                
+                event_name = discord_event.name
+                
+                # Récupérer les participations depuis la base de données
                 participations = uow.participations.get_by_event(str(event_id))
+                
+                if not participations:
+                    await ctx.send(f"Aucun inscrit à **{event_name}**.")
+                    return
+
+                # Récupérer les données utilisateur pendant que le contexte est ouvert
+                participants_data = []
+                for participation in participations:
+                    user = uow.users.get_by_discord_id(participation.user_discord_id)
+                    participants_data.append({
+                        'username': user.username if user else 'Utilisateur inconnu',
+                        'discord_id': participation.user_discord_id,
+                        'joined_at': participation.joined_at
+                    })
             
-            if not participations:
-                await ctx.send(f"Aucun inscrit à **{discord_event.name}**.")
-                return
-
-            # Créer l'embed
-            embed = discord.Embed(
-                title=f"👥 Inscriptions pour {discord_event.name}",
-                color=discord.Color.green()
-            )
-
-            # Liste des inscrits rangés par date d'inscription
-            liste_display_names = "\n".join([
-                f"- {participation.user_discord_id} ({participation.created_at.strftime('%d/%m/%Y %H:%M')})" 
-                for participation in participations
-            ])
-
-            # Liste par mentions (pour le ping)
-            liste_mentions = " ".join([f"<@{participation.user_discord_id}>" for participation in participations])
-
-            embed.add_field(
-                name="📋 Liste des inscrits",
-                value=liste_display_names,
-                inline=False
-            )
+            # Créer le message
+            message = f"👥 Inscriptions pour {event_name} :\n"
             
-            embed.add_field(
-                name="🔔 Mentions pour ping",
-                value=f"```{liste_mentions}```",
-                inline=False
-            )
+            for participant in participants_data:
+                message += f"- {participant['username']} ({participant['joined_at'].strftime('%d/%m/%Y %H:%M')})\n"
 
-            await ctx.send(embed=embed)
+            code_mentions = " ".join([f"<@{p['discord_id']}>" for p in participants_data])
+            message += f"```{code_mentions}```"
+
+            await ctx.send(message)
             
         except Exception as e:
             await ctx.send(f"❌ Erreur lors de la récupération des participants : {str(e)}")
@@ -123,30 +110,31 @@ class EventsCommands(commands.Cog):
                 await ctx.send(f"❌ Aucun événement Discord trouvé avec l'ID `{event_id}`.")
                 return
             
-            # Créer l'embed détaillé
-            embed = discord.Embed(
-                title=f"📅 {discord_event.name}",
-                color=discord.Color.blue()
-            )
+            # Compter les participants depuis la base de données
+            with self.uow_factory() as uow:
+                participations = uow.participations.get_by_event(str(discord_event.id))
+                participants_count = len(participations)
             
-            embed.add_field(name="🆔 ID", value=str(discord_event.id), inline=True)
-            embed.add_field(name="📊 Participants", value=str(len(discord_event.subscribers)), inline=True)
+            # Créer le message simple
+            message = f"📅 **{discord_event.name}**\n\n"
+            message += f"🆔 ID: {discord_event.id}\n"
+            message += f"📊 Participants: {participants_count}\n"
             
             if discord_event.start_time:
-                embed.add_field(name="📅 Début", value=discord_event.start_time.strftime('%d/%m/%Y %H:%M'), inline=True)
+                message += f"📅 Début: {discord_event.start_time.strftime('%d/%m/%Y %H:%M')}\n"
             
             if discord_event.end_time:
-                embed.add_field(name="🏁 Fin", value=discord_event.end_time.strftime('%d/%m/%Y %H:%M'), inline=True)
-            
-            if discord_event.description:
-                embed.add_field(name="📝 Description", value=discord_event.description[:1000], inline=False)
+                message += f"🏁 Fin: {discord_event.end_time.strftime('%d/%m/%Y %H:%M')}\n"
             
             if discord_event.location:
-                embed.add_field(name="📍 Lieu", value=discord_event.location, inline=True)
+                message += f"📍 Lieu: {discord_event.location}\n"
             
-            embed.add_field(name="🔗 Lien", value=f"[Voir l'événement]({discord_event.url})", inline=True)
+            if discord_event.description:
+                message += f"\n📝 Description:\n{discord_event.description}\n"
             
-            await ctx.send(embed=embed)
+            message += f"\n🔗 Lien: {discord_event.url}"
+            
+            await ctx.send(message)
             
         except Exception as e:
             await ctx.send(f"❌ Erreur lors de la récupération des informations : {str(e)}")

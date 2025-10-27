@@ -30,7 +30,6 @@ class GeneralCommands(commands.Cog):
         try:
             await ctx.send(help_message)
         except discord.Forbidden:
-            # Fallback si pas de permissions pour les embeds
             await ctx.send("❌ Permissions insuffisantes pour afficher l'aide.")
 
     def _build_help_message(self) -> str:

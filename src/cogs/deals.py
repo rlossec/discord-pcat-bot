@@ -3,7 +3,6 @@ Cog pour la gestion des promotions de jeux
 Utilise la nouvelle architecture Clean Architecture
 """
 import aiohttp
-import discord
 from discord.ext import commands
 from datetime import datetime
 from bot.domain.services import GameService, DealService
@@ -33,23 +32,15 @@ class DealsCog(commands.Cog):
             # Créer le jeu
             game = game_service.create_game(game_name)
             
-            embed = discord.Embed(
-                title="✅ Jeu ajouté",
-                description=f"Le jeu **{game.name}** a été ajouté avec succès !",
-                color=discord.Color.green()
-            )
-            embed.add_field(name="ID", value=game.id, inline=True)
-            embed.add_field(name="Nom", value=game.name, inline=True)
+            message = "✅ **Jeu ajouté**\n\n"
+            message += f"Le jeu **{game.name}** a été ajouté avec succès !\n"
+            message += f"**ID:** {game.id}\n"
+            message += f"**Nom:** {game.name}"
             
-            await ctx.send(embed=embed)
+            await ctx.send(message)
             
         except Exception as e:
-            embed = discord.Embed(
-                title="❌ Erreur",
-                description=f"Impossible d'ajouter le jeu : {str(e)}",
-                color=discord.Color.red()
-            )
-            await ctx.send(embed=embed)
+            await ctx.send(f"❌ **Erreur**\n\nImpossible d'ajouter le jeu : {str(e)}")
     
     @commands.command(name="listgames", help="Liste tous les jeux suivis")
     async def list_games(self, ctx):
@@ -63,42 +54,25 @@ class DealsCog(commands.Cog):
             games = game_service.get_all_games()
             
             if not games:
-                embed = discord.Embed(
-                    title="📋 Jeux suivis",
-                    description="Aucun jeu suivi pour le moment.",
-                    color=discord.Color.blue()
-                )
-                await ctx.send(embed=embed)
+                await ctx.send("📋 **Jeux suivis**\n\nAucun jeu suivi pour le moment.")
                 return
             
-            embed = discord.Embed(
-                title="📋 Jeux suivis",
-                description=f"{len(games)} jeu(s) suivi(s)",
-                color=discord.Color.blue()
-            )
+            message = f"📋 **Jeux suivis**\n\n{len(games)} jeu(s) suivi(s)\n\n"
             
             # Limiter à 25 jeux (limite Discord)
             games_to_show = games[:25]
             
             for game in games_to_show:
-                embed.add_field(
-                    name=f"🎮 {game.name}",
-                    value=f"ID: {game.id}\nSteam: {game.steam_id or 'N/A'}\nEpic: {game.epic_id or 'N/A'}",
-                    inline=True
-                )
+                message += f"🎮 **{game.name}**\n"
+                message += f"ID: {game.id} | Steam: {game.steam_id or 'N/A'} | Epic: {game.epic_id or 'N/A'}\n\n"
             
             if len(games) > 25:
-                embed.set_footer(text=f"... et {len(games) - 25} autres jeux")
+                message += f"... et {len(games) - 25} autres jeux"
             
-            await ctx.send(embed=embed)
+            await ctx.send(message)
             
         except Exception as e:
-            embed = discord.Embed(
-                title="❌ Erreur",
-                description=f"Impossible de lister les jeux : {str(e)}",
-                color=discord.Color.red()
-            )
-            await ctx.send(embed=embed)
+            await ctx.send(f"❌ **Erreur**\n\nImpossible de lister les jeux : {str(e)}")
     
     @commands.command(name="checkdeals", help="Vérifie les promotions pour un jeu")
     async def check_deals(self, ctx, *, game_name: str):
@@ -112,28 +86,18 @@ class DealsCog(commands.Cog):
             # Trouver le jeu
             game = game_service.get_game_by_name(game_name)
             if not game:
-                embed = discord.Embed(
-                    title="❌ Jeu non trouvé",
-                    description=f"Le jeu **{game_name}** n'est pas suivi.",
-                    color=discord.Color.red()
-                )
-                await ctx.send(embed=embed)
+                await ctx.send(f"❌ **Jeu non trouvé**\n\nLe jeu **{game_name}** n'est pas suivi.")
                 return
             
             # Récupérer les promotions existantes
             existing_deals = deal_service.get_deals_by_game(game.id)
             
-            embed = discord.Embed(
-                title=f"🎮 Promotions pour {game.name}",
-                color=discord.Color.blue()
-            )
-            
             if not existing_deals:
-                embed.description = "Aucune promotion trouvée pour ce jeu."
+                message = f"🎮 **Promotions pour {game.name}**\n\nAucune promotion trouvée pour ce jeu."
             else:
-                embed.description = f"{len(existing_deals)} promotion(s) trouvée(s)"
+                message = f"🎮 **Promotions pour {game.name}**\n\n{len(existing_deals)} promotion(s) trouvée(s)\n\n"
                 
-                # Limiter à 10 promotions (limite Discord)
+                # Limiter à 10 promotions
                 deals_to_show = existing_deals[:10]
                 
                 for deal in deals_to_show:
@@ -141,24 +105,17 @@ class DealsCog(commands.Cog):
                     sale_price_str = format_currency(deal.sale_price)
                     normal_price_str = format_currency(deal.normal_price)
                     
-                    embed.add_field(
-                        name=f"💰 {deal.title}",
-                        value=f"Prix: {sale_price_str} (au lieu de {normal_price_str})\nÉconomie: {savings_percent}\nStore: {deal.store_id}",
-                        inline=False
-                    )
+                    message += f"💰 **{deal.title}**\n"
+                    message += f"Prix: {sale_price_str} (au lieu de {normal_price_str})\n"
+                    message += f"Économie: {savings_percent} | Store: {deal.store_id}\n\n"
                 
                 if len(existing_deals) > 10:
-                    embed.set_footer(text=f"... et {len(existing_deals) - 10} autres promotions")
+                    message += f"... et {len(existing_deals) - 10} autres promotions"
             
-            await ctx.send(embed=embed)
+            await ctx.send(message)
             
         except Exception as e:
-            embed = discord.Embed(
-                title="❌ Erreur",
-                description=f"Impossible de vérifier les promotions : {str(e)}",
-                color=discord.Color.red()
-            )
-            await ctx.send(embed=embed)
+            await ctx.send(f"❌ **Erreur**\n\nImpossible de vérifier les promotions : {str(e)}")
     
     @commands.command(name="searchdeals", help="Recherche des promotions sur CheapShark")
     async def search_deals(self, ctx, *, search_term: str):
@@ -170,19 +127,10 @@ class DealsCog(commands.Cog):
                         deals_data = await response.json()
                         
                         if not deals_data:
-                            embed = discord.Embed(
-                                title="🔍 Recherche de promotions",
-                                description=f"Aucune promotion trouvée pour **{search_term}**",
-                                color=discord.Color.orange()
-                            )
-                            await ctx.send(embed=embed)
+                            await ctx.send(f"🔍 **Recherche de promotions**\n\nAucune promotion trouvée pour **{search_term}**")
                             return
                         
-                        embed = discord.Embed(
-                            title=f"🔍 Promotions pour {search_term}",
-                            description=f"{len(deals_data)} promotion(s) trouvée(s)",
-                            color=discord.Color.green()
-                        )
+                        message = f"🔍 **Promotions pour {search_term}**\n\n{len(deals_data)} promotion(s) trouvée(s)\n\n"
                         
                         # Limiter à 10 résultats
                         deals_to_show = deals_data[:10]
@@ -196,31 +144,19 @@ class DealsCog(commands.Cog):
                             sale_price_str = format_currency(sale_price)
                             normal_price_str = format_currency(normal_price)
                             
-                            embed.add_field(
-                                name=f"🎮 {deal.get('title', 'Titre inconnu')}",
-                                value=f"Prix: {sale_price_str} (au lieu de {normal_price_str})\nÉconomie: {savings_percent}\nStore: {deal.get('storeID', 'N/A')}",
-                                inline=False
-                            )
+                            message += f"🎮 **{deal.get('title', 'Titre inconnu')}**\n"
+                            message += f"Prix: {sale_price_str} (au lieu de {normal_price_str})\n"
+                            message += f"Économie: {savings_percent} | Store: {deal.get('storeID', 'N/A')}\n\n"
                         
                         if len(deals_data) > 10:
-                            embed.set_footer(text=f"... et {len(deals_data) - 10} autres promotions")
+                            message += f"... et {len(deals_data) - 10} autres promotions"
                         
-                        await ctx.send(embed=embed)
+                        await ctx.send(message)
                     else:
-                        embed = discord.Embed(
-                            title="❌ Erreur API",
-                            description="Impossible de contacter l'API CheapShark",
-                            color=discord.Color.red()
-                        )
-                        await ctx.send(embed=embed)
+                        await ctx.send("❌ **Erreur API**\n\nImpossible de contacter l'API CheapShark")
                         
         except Exception as e:
-            embed = discord.Embed(
-                title="❌ Erreur",
-                description=f"Erreur lors de la recherche : {str(e)}",
-                color=discord.Color.red()
-            )
-            await ctx.send(embed=embed)
+            await ctx.send(f"❌ **Erreur**\n\nErreur lors de la recherche : {str(e)}")
 
 
 async def setup(bot):

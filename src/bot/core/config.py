@@ -33,7 +33,7 @@ PARIS_TIMEZONE = "Europe/Paris"
 CHEAPSHARK_API_URL = "https://www.cheapshark.com/api/1.0"
 
 # Configuration des canaux Discord
-DRAFT_ANNOUNCE_CHANNEL_ID = int(os.getenv("DRAFT_ANNOUNCE_CHANNEL_ID", "0")) or None
+ANNOUNCE_CHANNEL_ID = int(os.getenv("ANNOUNCE_CHANNEL_ID", "0")) or None
 
 def validate_config() -> bool:
     """Valide la configuration requise"""

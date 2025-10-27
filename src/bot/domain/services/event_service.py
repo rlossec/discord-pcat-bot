@@ -21,6 +21,13 @@ class EventService:
             events = self.uow.events.get_active_events()
             return [EventResponse.from_orm(event) for event in events]
     
+
+    def get_by_discord_id(self, discord_id: str) -> Optional[EventResponse]:
+        """Récupère un événement par son ID Discord"""
+        with self.uow:
+            event = self.uow.events.get_by_discord_id(discord_id)
+            return EventResponse.from_orm(event) if event else None
+
     def create_event(self, discord_id: str, name: str) -> EventResponse:
         """Crée un nouvel événement"""
         with self.uow:
