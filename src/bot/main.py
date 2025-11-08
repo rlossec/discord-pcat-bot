@@ -13,9 +13,12 @@ from bot.core.database import db_engine
 
 from bot.infrastructure.unit_of_work_impl import create_unit_of_work
 from bot.domain.services import (
-    UserService, EventService, ParticipationService, 
-    GameService, DealService
+    UserService, EventService, ParticipationService,
+    GameService, DealService, SynchronizationService
 )
+
+
+SYNC_NOTIFICATION_CHANNEL_ID = 1287444752421097493
 
 
 class DiscordBot(commands.Bot):
@@ -28,6 +31,8 @@ class DiscordBot(commands.Bot):
         # Configuration du bot Discord
         intents = discord.Intents.default()
         intents.message_content = True
+        intents.members = True
+        intents.guild_scheduled_events = True
         super().__init__(command_prefix=DISCORD_PREFIX, intents=intents)
         
         # Services métier
@@ -37,6 +42,7 @@ class DiscordBot(commands.Bot):
         self.participation_service = None
         self.game_service = None
         self.deal_service = None
+        self.sync_service = SynchronizationService(self.uow_factory, SYNC_NOTIFICATION_CHANNEL_ID)
         
         # Configuration
         self.token = DISCORD_TOKEN
@@ -118,7 +124,7 @@ class DiscordBot(commands.Bot):
         
         # Synchronisation des données
         logger.info("🔄 [SYNC] Synchronisation avec Discord...")
-        await self._sync_discord_data(guild)
+        await self.sync_service.sync_guild(self, guild)
         
         # Résumé final
         await self._display_startup_summary()
@@ -145,13 +151,6 @@ class DiscordBot(commands.Bot):
                 
         except Exception as e:
             logger.error(f"❌ [DB-HEALTH] Erreur lors de la vérification: {e}")
-    
-    async def _sync_discord_data(self, guild):
-        """Synchronise les données Discord avec la base"""
-        # TODO: Implémenter la synchronisation avec les services métier
-        logger.info("🔄 [SYNC] Synchronisation des données...")
-        # Pour l'instant, juste un placeholder
-        logger.info("✅ [SYNC] Synchronisation terminée")
     
     async def _display_startup_summary(self):
         """Affiche un résumé de démarrage"""
@@ -185,7 +184,7 @@ class DiscordBot(commands.Bot):
         
         logger.info("✅ [STARTUP] Bot opérationnel et prêt à recevoir des commandes !")
         logger.info("Done!")
-    
+
     def run(self):
         """Lance le bot"""
         super().run(self.token, reconnect=True)

@@ -1,7 +1,7 @@
 
 from discord.ext import commands
 from datetime import datetime, timedelta, timezone
-from bot.core.config import DISCORD_GUILD_ID, ANNOUNCE_CHANNEL_ID
+from bot.core.config import ANNOUNCE_CHANNEL_ID
 
 
 class AnnouncementCommands(commands.Cog):

@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 from typing import Optional
+import pytz
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -28,6 +29,7 @@ COGS_DIR: str = "src.cogs"
 
 # Configuration du timezone
 PARIS_TIMEZONE = "Europe/Paris"
+PARIS_TZ = pytz.timezone(PARIS_TIMEZONE)
 
 # Configuration des APIs externes
 CHEAPSHARK_API_URL = "https://www.cheapshark.com/api/1.0"

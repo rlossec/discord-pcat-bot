@@ -113,43 +113,41 @@ python src/main.py # avec un environnement virtuel actif
 ## 🏗️ Structure du Projet
 
 ```
-DictaBot/
-├── src/
-│   ├── bot/                      # Cœur du bot (Clean Architecture)
-│   │   ├── main.py               # Point d'entrée principal
-│   │   ├── core/                 # Configuration et infrastructure
-│   │   │   ├── config.py         # Configuration centralisée
-│   │   │   ├── database.py       # Gestion SQLAlchemy
-│   │   │   ├── logging_config.py # Configuration logging
-│   │   │   ├── utils.py          # Fonctions utilitaires
-│   │   │   ├── interfaces/       # Contrats abstraits
-│   │   │   │   ├── repository.py
-│   │   │   │   └── unit_of_work.py
-│   │   │   └── repositories/     # Implémentations SQLite
-│   │   │       └── sqlite_repository.py
-│   │   ├── domain/               # Logique métier
-│   │   │   ├── entities.py       # Entités SQLAlchemy
-│   │   │   ├── models.py         # Modèles Pydantic
-│   │   │   └── services.py       # Services métier
-│   │   └── infrastructure/       # Implémentations concrètes
-│   │       └── unit_of_work_impl.py
-│   ├── cogs/                     # Modules de fonctionnalités
-│   │   ├── events.py             # Gestion événements
-│   │   ├── deals.py              # Suivi promotions
-│   │   ├── general.py            # Commandes générales
-│   │   └── announcement.py       # Annonces événements
-│   ├── data/                     # Données persistantes
-│   │   ├── bot.db                # Base SQLite
-│   │   └── bot.log               # Logs
-│   └── main.py                   # Point d'entrée simple
-├── scripts/                      # Scripts utilitaires
-│   ├── crud/                     # Opérations CRUD
-│   ├── tests/                    # Tests unitaires
-│   └── utils/                    # Utilitaires
-├── docs/                         # Documentation
-│   └── ARCHITECTURE.md
-├── pyproject.toml             # Configuration moderne
-└── README.md
+src/
+├── bot/                      # Cœur du bot (Clean Architecture)
+├── main.py               # Point d'entrée principal
+├── core/                 # Configuration et infrastructure
+│   │   ├── config.py         # Configuration centralisée
+│   │   ├── database.py       # Gestion SQLAlchemy
+│   │   ├── logging_config.py # Configuration logging
+│   │   ├── utils.py          # Fonctions utilitaires
+│   │   ├── interfaces/       # Contrats abstraits
+│   │   │   ├── repository.py
+│   │   │   └── unit_of_work.py
+│   │   └── repositories/     # Implémentations SQLite
+│   │       └── sqlite_repository.py
+│   ├── domain/               # Logique métier
+│   │   ├── entities.py       # Entités SQLAlchemy
+│   │   ├── models.py         # Modèles Pydantic
+│   │   └── services.py       # Services métier
+│   └── infrastructure/       # Implémentations concrètes
+│       └── unit_of_work_impl.py
+├── cogs/                     # Modules de fonctionnalités
+│   ├── events.py             # Gestion événements
+│   ├── deals.py              # Suivi promotions
+│   ├── general.py            # Commandes générales
+│   └── announcement.py       # Annonces événements
+├── data/                     # Données persistantes
+│   ├── bot.db                # Base SQLite
+│   └── bot.log               # Logs
+└── main.py                   # Point d'entrée simple
+scripts/                      # Scripts utilitaires
+├── crud/                     # Opérations CRUD
+├── tests/                    # Tests unitaires
+└── utils/                    # Utilitaires
+docs/                         # Documentation
+pyproject.toml             # Configuration moderne
+README.md
 ```
 
 ## 🔧 Technologies Utilisées

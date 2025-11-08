@@ -8,6 +8,7 @@ from .event_service import EventService
 from .participation_service import ParticipationService
 from .game_service import GameService
 from .deal_service import DealService
+from .synchronization_service import SynchronizationService
 
 __all__ = [
     'UserService',
@@ -15,4 +16,5 @@ __all__ = [
     'ParticipationService',
     'GameService',
     'DealService',
+    'SynchronizationService',
 ]

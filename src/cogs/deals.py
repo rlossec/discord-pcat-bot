@@ -4,10 +4,10 @@ Utilise la nouvelle architecture Clean Architecture
 """
 import aiohttp
 from discord.ext import commands
-from datetime import datetime
+
 from bot.domain.services import GameService, DealService
 from bot.infrastructure.unit_of_work_impl import create_unit_of_work
-from bot.core.utils import safe_float, safe_int, format_currency, format_percentage
+from bot.core.utils import safe_float, format_currency, format_percentage
 
 API_URL = "https://www.cheapshark.com/api/1.0"
 TEST_CHANNEL_ID = 1287444577933983806
