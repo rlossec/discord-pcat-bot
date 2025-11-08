@@ -4,10 +4,12 @@ Service de synchronisation entre Discord et la base de données.
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from datetime import datetime
 
 import discord
 from discord.ext import commands
 
+from bot.core.config import PARIS_TZ
 from bot.core.interfaces.unit_of_work import UnitOfWork
 from bot.core.logging_config import logger
 
@@ -235,6 +237,12 @@ class SynchronizationService:
         """Envoie les notifications d'inscription/désinscription dans le canal dédié."""
         events_map = {str(event.id): event for event in discord_events}
 
+        header = self._format_notification_header()
+        try:
+            await channel.send(header)
+        except discord.HTTPException as exc:
+            logger.error("❌ [SYNC] Erreur lors de l'envoi de l'en-tête de notification : %s", exc)
+
         for action, event_id, _user_id, username in notifications:
             event = events_map.get(event_id)
             if event is None:
@@ -254,7 +262,7 @@ class SynchronizationService:
 
     @staticmethod
     def _extract_display_name(
-        user: Optional[Union[discord.ScheduledEventUser, discord.abc.User, discord.Member]],
+        user: Optional[Union[discord.abc.User, discord.Member, Any]],
         fallback_id: str,
     ) -> str:
         """Retourne un nom d'affichage exploitable pour les logs/messages."""
@@ -284,4 +292,11 @@ class SynchronizationService:
             return getattr(user, "name")
 
         return f"Utilisateur {fallback_id}"
+
+    @staticmethod
+    def _format_notification_header() -> str:
+        """Construit l'en-tête des notifications de synchronisation."""
+        now = datetime.now(PARIS_TZ)
+        timestamp = now.strftime("%d/%m/%Y %H:%M UTC")
+        return f"## Mise à jour des inscriptions\n{timestamp}"
 
