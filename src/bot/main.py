@@ -18,7 +18,7 @@ from bot.domain.services import (
 )
 
 
-SYNC_NOTIFICATION_CHANNEL_ID = 1287444752421097493
+SYNC_NOTIFICATION_CHANNEL_ID = 1436713852661268592
 
 
 class DiscordBot(commands.Bot):
