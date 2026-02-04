@@ -83,6 +83,8 @@ DISCORD_GUILD_ID=id_du_serveur_discord
 SYNC_INTERVAL_SECONDS=3600
 # Optionnel : rétention des logs en jours (défaut : 7), un fichier par session dans src/data/logs/
 LOG_RETENTION_DAYS=7
+# Optionnel : cooldown inscriptions/désinscriptions en secondes (défaut : 600 = 10 min), 0 = désactivé
+SUBSCRIPTION_COOLDOWN_SECONDS=600
 ```
 
 4. **Lancer le bot**

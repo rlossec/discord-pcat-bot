@@ -40,6 +40,9 @@ ANNOUNCE_CHANNEL_ID = int(os.getenv("ANNOUNCE_CHANNEL_ID", "0")) or None
 # Synchronisation périodique (secondes) - 0 pour désactiver
 SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "3600"))
 
+# Cooldown inscriptions/désinscriptions (secondes) - 0 pour désactiver
+SUBSCRIPTION_COOLDOWN_SECONDS = int(os.getenv("SUBSCRIPTION_COOLDOWN_SECONDS", "600"))
+
 def validate_config() -> bool:
     """Valide la configuration requise"""
     if not DISCORD_TOKEN:

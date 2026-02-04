@@ -4,12 +4,12 @@ Service de synchronisation entre Discord et la base de données.
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import discord
 from discord.ext import commands
 
-from bot.core.config import PARIS_TZ
+from bot.core.config import PARIS_TZ, SUBSCRIPTION_COOLDOWN_SECONDS
 from bot.core.interfaces.unit_of_work import UnitOfWork
 from bot.core.logging_config import logger
 
@@ -27,6 +27,23 @@ class SynchronizationService:
     ) -> None:
         self.uow_factory = uow_factory
         self.notification_channel_id = notification_channel_id
+        self._subscription_cooldown: Dict[Tuple[str, str], datetime] = {}
+
+    def _is_in_subscription_cooldown(self, user_id: str, event_id: str) -> bool:
+        """Retourne True si l'utilisateur est en cooldown pour cet événement."""
+        if SUBSCRIPTION_COOLDOWN_SECONDS <= 0:
+            return False
+        key = (user_id, event_id)
+        last = self._subscription_cooldown.get(key)
+        if not last:
+            return False
+        return (datetime.now(PARIS_TZ) - last) < timedelta(seconds=SUBSCRIPTION_COOLDOWN_SECONDS)
+
+    def _record_subscription_action(self, user_id: str, event_id: str) -> None:
+        """Enregistre une action d'inscription/désinscription pour le cooldown."""
+        if SUBSCRIPTION_COOLDOWN_SECONDS <= 0:
+            return
+        self._subscription_cooldown[(user_id, event_id)] = datetime.now(PARIS_TZ)
 
     async def sync_guild(self, bot: commands.Bot, guild: discord.Guild) -> None:
         """Synchronise les données Discord avec la base."""
@@ -82,7 +99,9 @@ class SynchronizationService:
 
                         username_db = user_entity.username if user_entity else display_name
 
-                        notifications.append(("join", event_id, user_id, username_db))
+                        if not self._is_in_subscription_cooldown(user_id, event_id):
+                            notifications.append(("join", event_id, user_id, username_db))
+                        self._record_subscription_action(user_id, event_id)
                         logger.info(
                             "✅ [SYNC] Inscription détectée pour l'événement %s (%s) : %s",
                             discord_event.name,
@@ -96,7 +115,9 @@ class SynchronizationService:
 
                         removed = uow.participations.remove_participation(event_id, user_id)
                         if removed:
-                            notifications.append(("leave", event_id, user_id, username_db))
+                            if not self._is_in_subscription_cooldown(user_id, event_id):
+                                notifications.append(("leave", event_id, user_id, username_db))
+                            self._record_subscription_action(user_id, event_id)
                             logger.info(
                                 "❌ [SYNC] Désinscription détectée pour l'événement %s (%s) : %s",
                                 discord_event.name,
@@ -189,6 +210,15 @@ class SynchronizationService:
         """Traite une inscription en temps réel (événement Gateway)."""
         event_id = str(scheduled_event.id)
         user_id = str(user.id)
+
+        if self._is_in_subscription_cooldown(user_id, event_id):
+            logger.debug(
+                "[SYNC] Inscription ignorée (cooldown) : %s sur %s",
+                user_id,
+                event_id,
+            )
+            return
+
         display_name = self._extract_display_name(user, user_id)
 
         try:
@@ -222,6 +252,7 @@ class SynchronizationService:
                         [("join", event_id, user_id, display_name)],
                         [scheduled_event],
                     )
+            self._record_subscription_action(user_id, event_id)
         except Exception as exc:
             logger.exception("❌ [SYNC] Erreur lors du traitement inscription temps réel : %s", exc)
 
@@ -234,6 +265,14 @@ class SynchronizationService:
         """Traite une désinscription en temps réel (événement Gateway)."""
         event_id = str(scheduled_event.id)
         user_id = str(user.id)
+
+        if self._is_in_subscription_cooldown(user_id, event_id):
+            logger.debug(
+                "[SYNC] Désinscription ignorée (cooldown) : %s sur %s",
+                user_id,
+                event_id,
+            )
+            return
 
         try:
             with self.uow_factory() as uow:
@@ -259,6 +298,7 @@ class SynchronizationService:
                                 [("leave", event_id, user_id, username_db)],
                                 [scheduled_event],
                             )
+                    self._record_subscription_action(user_id, event_id)
         except Exception as exc:
             logger.exception("❌ [SYNC] Erreur lors du traitement désinscription temps réel : %s", exc)
 
