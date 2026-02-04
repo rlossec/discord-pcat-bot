@@ -79,6 +79,10 @@ pip install -r requirements.txt
 ```env
 DISCORD_TOKEN=votre_token_bot_discord
 DISCORD_GUILD_ID=id_du_serveur_discord
+# Optionnel : intervalle de sync périodique en secondes (défaut : 3600, 0 = désactivé)
+SYNC_INTERVAL_SECONDS=3600
+# Optionnel : rétention des logs en jours (défaut : 7), un fichier par session dans src/data/logs/
+LOG_RETENTION_DAYS=7
 ```
 
 4. **Lancer le bot**
@@ -108,7 +112,9 @@ python src/main.py # avec un environnement virtuel actif
 - `$unfollow_game <nom>` - Arrêter le suivi
 - `$list_games` - Jeux suivis
 
-## 📚 Documentation Complète
+## 📚 Documentation
+
+- **[Bot en continu et suivi des inscriptions](docs/BOT_CONTINU_INSCRIPTIONS.md)** — Implications et solutions lorsque le bot tourne 24/7 (synchronisation des inscriptions, notifications, etc.)
 
 ## 🏗️ Structure du Projet
 
@@ -139,7 +145,7 @@ src/
 │   └── announcement.py       # Annonces événements
 ├── data/                     # Données persistantes
 │   ├── bot.db                # Base SQLite
-│   └── bot.log               # Logs
+│   └── logs/                 # Logs (un fichier par session, rétention 7 jours)
 └── main.py                   # Point d'entrée simple
 scripts/                      # Scripts utilitaires
 ├── crud/                     # Opérations CRUD

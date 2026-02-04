@@ -6,15 +6,26 @@ import os
 
 import discord
 from discord.ext import commands
+from discord.ext import tasks
 
 from bot.core.logging_config import logger
-from bot.core.config import validate_config, DISCORD_TOKEN, DISCORD_GUILD_ID, DISCORD_PREFIX
+from bot.core.config import (
+    validate_config,
+    DISCORD_TOKEN,
+    DISCORD_GUILD_ID,
+    DISCORD_PREFIX,
+    SYNC_INTERVAL_SECONDS,
+)
 from bot.core.database import db_engine
 
 from bot.infrastructure.unit_of_work_impl import create_unit_of_work
 from bot.domain.services import (
-    UserService, EventService, ParticipationService,
-    GameService, DealService, SynchronizationService
+    UserService,
+    EventService,
+    ParticipationService,
+    GameService,
+    DealService,
+    SynchronizationService,
 )
 
 
@@ -54,7 +65,7 @@ class DiscordBot(commands.Bot):
         """Configuration initiale du bot"""
         # Créer les tables
         db_engine.create_tables()
-               
+        
         # Initialiser les services métier
         uow = self.uow_factory()
         self.user_service = UserService(uow)
@@ -126,8 +137,45 @@ class DiscordBot(commands.Bot):
         logger.info("🔄 [SYNC] Synchronisation avec Discord...")
         await self.sync_service.sync_guild(self, guild)
         
+        # Démarrer la synchronisation périodique (option 3 : approche hybride)
+        if SYNC_INTERVAL_SECONDS > 0:
+            self._sync_loop.change_interval(seconds=SYNC_INTERVAL_SECONDS)
+            self._sync_loop.start(guild)
+            logger.info("⏱️ [SYNC] Synchronisation périodique activée (toutes les %d s)", SYNC_INTERVAL_SECONDS)
+        else:
+            logger.info("⏱️ [SYNC] Synchronisation périodique désactivée (SYNC_INTERVAL_SECONDS=0)")
+
         # Résumé final
         await self._display_startup_summary()
+
+    @tasks.loop(minutes=60)  # Valeur par défaut, écrasée si SYNC_INTERVAL_SECONDS > 0
+    async def _sync_loop(self, guild: discord.Guild):
+        """Synchronisation périodique de rattrapage (événements manqués, déconnexions)."""
+        try:
+            logger.info("🔄 [SYNC] Synchronisation périodique en cours...")
+            await self.sync_service.sync_guild(self, guild)
+        except Exception as exc:
+            logger.exception("❌ [SYNC] Erreur lors de la synchronisation périodique : %s", exc)
+
+    @_sync_loop.before_loop
+    async def _sync_loop_before(self):
+        await self.wait_until_ready()
+
+    async def on_scheduled_event_user_add(
+        self, scheduled_event: discord.ScheduledEvent, user: discord.abc.User
+    ) -> None:
+        """Inscription en temps réel à un événement planifié."""
+        if scheduled_event.guild_id != self.guild_id:
+            return
+        await self.sync_service.handle_user_add(self, scheduled_event, user)
+
+    async def on_scheduled_event_user_remove(
+        self, scheduled_event: discord.ScheduledEvent, user: discord.abc.User
+    ) -> None:
+        """Désinscription en temps réel d'un événement planifié."""
+        if scheduled_event.guild_id != self.guild_id:
+            return
+        await self.sync_service.handle_user_remove(self, scheduled_event, user)
     
     async def _check_database_health(self):
         """Vérifie la santé de la base de données"""
@@ -193,6 +241,8 @@ class DiscordBot(commands.Bot):
         """Ferme proprement le bot"""
         logger.info("🛑 [SHUTDOWN] Arrêt du bot...")
         try:
+            if self._sync_loop.is_running():
+                self._sync_loop.cancel()
             db_engine.close()
         except Exception as e:
             logger.error(f"❌ [SHUTDOWN] Erreur lors de la fermeture : {e}")

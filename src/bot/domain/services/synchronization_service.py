@@ -180,6 +180,88 @@ class SynchronizationService:
 
         return participants, user_lookup
 
+    async def handle_user_add(
+        self,
+        bot: commands.Bot,
+        scheduled_event: discord.ScheduledEvent,
+        user: discord.abc.User,
+    ) -> None:
+        """Traite une inscription en temps réel (événement Gateway)."""
+        event_id = str(scheduled_event.id)
+        user_id = str(user.id)
+        display_name = self._extract_display_name(user, user_id)
+
+        try:
+            with self.uow_factory() as uow:
+                # Vérifier si déjà inscrit (idempotence)
+                existing = uow.participations.get_by_event(event_id)
+                if any(p.user_discord_id == user_id for p in existing):
+                    return
+
+                uow.participations.create_participation(event_id, user_id)
+                user_entity = uow.users.get_by_discord_id(user_id)
+                if not user_entity:
+                    uow.users.get_or_create_by_discord_id(user_id, display_name)
+                uow.commit()
+
+            logger.info(
+                "✅ [SYNC] Inscription temps réel pour %s (%s) : %s",
+                scheduled_event.name,
+                event_id,
+                display_name,
+            )
+
+            guild = getattr(scheduled_event, "guild", None) or bot.get_guild(
+                getattr(scheduled_event, "guild_id", 0)
+            )
+            if guild:
+                channel = await self._resolve_notification_channel(bot, guild)
+                if channel:
+                    await self._publish_notifications(
+                        channel,
+                        [("join", event_id, user_id, display_name)],
+                        [scheduled_event],
+                    )
+        except Exception as exc:
+            logger.exception("❌ [SYNC] Erreur lors du traitement inscription temps réel : %s", exc)
+
+    async def handle_user_remove(
+        self,
+        bot: commands.Bot,
+        scheduled_event: discord.ScheduledEvent,
+        user: discord.abc.User,
+    ) -> None:
+        """Traite une désinscription en temps réel (événement Gateway)."""
+        event_id = str(scheduled_event.id)
+        user_id = str(user.id)
+
+        try:
+            with self.uow_factory() as uow:
+                user_entity = uow.users.get_by_discord_id(user_id)
+                username_db = user_entity.username if user_entity else user_id
+
+                removed = uow.participations.remove_participation(event_id, user_id)
+                if removed:
+                    uow.commit()
+                    logger.info(
+                        "❌ [SYNC] Désinscription temps réel pour %s (%s) : %s",
+                        scheduled_event.name,
+                        event_id,
+                        username_db,
+                    )
+
+                    guild = scheduled_event.guild or bot.get_guild(scheduled_event.guild_id)
+                    if guild:
+                        channel = await self._resolve_notification_channel(bot, guild)
+                        if channel:
+                            await self._publish_notifications(
+                                channel,
+                                [("leave", event_id, user_id, username_db)],
+                                [scheduled_event],
+                            )
+        except Exception as exc:
+            logger.exception("❌ [SYNC] Erreur lors du traitement désinscription temps réel : %s", exc)
+
     async def _sync_members_table(
         self,
         uow: UnitOfWork,

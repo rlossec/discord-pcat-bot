@@ -1,7 +1,6 @@
 """Configuration centralisée du bot Discord"""
 import os
 from pathlib import Path
-from typing import Optional
 import pytz
 
 from dotenv import load_dotenv
@@ -22,7 +21,8 @@ DISCORD_PREFIX: str = os.getenv("DISCORD_PREFIX", "$")
 
 # Configuration du logging
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
-LOG_FILE: str = os.getenv("LOG_FILE", "bot.log")
+LOGS_DIR: Path = DATA_DIR / "logs"
+LOG_RETENTION_DAYS: int = int(os.getenv("LOG_RETENTION_DAYS", "7"))  # Rétention des logs 7 jours
 
 # Configuration des cogs
 COGS_DIR: str = "src.cogs"
@@ -36,6 +36,9 @@ CHEAPSHARK_API_URL = "https://www.cheapshark.com/api/1.0"
 
 # Configuration des canaux Discord
 ANNOUNCE_CHANNEL_ID = int(os.getenv("ANNOUNCE_CHANNEL_ID", "0")) or None
+
+# Synchronisation périodique (secondes) - 0 pour désactiver
+SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL_SECONDS", "3600"))
 
 def validate_config() -> bool:
     """Valide la configuration requise"""
