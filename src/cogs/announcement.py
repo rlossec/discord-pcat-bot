@@ -42,6 +42,9 @@ class AnnouncementCommands(commands.Cog):
         # Création du message
         message = ""
         message += "```"
+        message += "\n"
+        message += "Bonsoir tout le monde !"
+        message += "\n"
         message += "@annonce Cette semaine, on propose les soirées suivantes :\n\n"
 
         for event in week_events:
